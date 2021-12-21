@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using KittyHelper.Options;
 
 namespace KittyHelper
 {
@@ -7,13 +8,42 @@ namespace KittyHelper
     {
         public class ProjectWriter
         {
-            public string ProjectRoot { get; }
-            public string ProjectVueViewRoot { get; }
-            public string ServiceBaseNameSpace { get; }
-            public string ModelBaseNamespace { get; }
-            private readonly string _projectServiceModelRoot;
             private readonly string _projectServiceInterfaceRoot;
+            private readonly string _projectServiceModelRoot;
 
+            public void GenerateServiceAndVue<T>(ICreateAVueComponent vueRenderer, ICreateAnEndPoint serviceGenerator,
+                CreateOptions<T> options)
+            {
+                var t = typeof(T);
+
+                var vueComponent = vueRenderer.Create();
+                var vueFileContents = vueComponent.Render();
+                var service = serviceGenerator.Create();
+                var requestObject = serviceGenerator.CreateRequestClass();
+                var responseObject = serviceGenerator.CreateResponseType();
+
+                var requestFolder = $"{t.Name}Models{Path.DirectorySeparatorChar}";
+                var responseFolder = $"{t.Name}Models{Path.DirectorySeparatorChar}";
+                var serviceFolder = $"{t.Name}Service{Path.DirectorySeparatorChar}";
+
+                WriteVueFile(t, options.ComponentName + ".vue", vueFileContents, true);
+                WriteCsServiceFile(options.ServiceObjectType, service.Render(), serviceFolder, true);
+                WriteCsModelFile(options.ResponseObjectType, responseObject.Render(), responseFolder, true);
+                WriteCsModelFile(options.RequestObjectType, requestObject.Render(), requestFolder, true);
+            //    WriteAutoRoute(options, t);
+            }
+
+            private void WriteAutoRoute<T>(CreateOptions<T> options, Type t)
+            {
+                WriteVueFile(t, "router.ts", KittyViewHelper.GenerateVueAutoRoute(new KittyViewHelper.ComponentPath[]
+                {
+                    new KittyViewHelper.ComponentPath()
+                    {
+                        Component = options.ComponentName ,
+                        Path = "/" + options.ComponentName
+                    }
+                }), true);
+            }
 
             public ProjectWriter(string projectRoot, string projectServiceModelRoot, string projectServiceInterfaceRoot,
                 string projectVueViewRoot, string ServiceBaseNameSpace, string ModelBaseNamespace)
@@ -29,11 +59,16 @@ namespace KittyHelper
                 _projectServiceInterfaceRoot = projectServiceInterfaceRoot;
             }
 
+            public string ProjectRoot { get; }
+            public string ProjectVueViewRoot { get; }
+            public string ServiceBaseNameSpace { get; }
+            public string ModelBaseNamespace { get; }
+
             public void WriteCsServiceFile(string typeName,
                 string contents, string folder, bool OverWrite)
             {
                 var FileExportConfig =
-                    new KittyHelper.KittyFileHelper.FileExportConfig(_projectServiceInterfaceRoot, folder,
+                    new KittyFileHelper.FileExportConfig(_projectServiceInterfaceRoot, folder,
                         $"{typeName}.cs", contents, OverWrite);
 
                 KittyFileHelper.WriteFileFromNamespace(FileExportConfig);
@@ -43,7 +78,7 @@ namespace KittyHelper
                 string contents, string folder, bool OverWrite)
             {
                 var FileExportConfig =
-                    new KittyHelper.KittyFileHelper.FileExportConfig(_projectServiceModelRoot, folder,
+                    new KittyFileHelper.FileExportConfig(_projectServiceModelRoot, folder,
                         $"{typeName}.cs", contents, OverWrite);
 
                 KittyFileHelper.WriteFileFromNamespace(FileExportConfig);

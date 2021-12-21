@@ -1,76 +1,73 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using static KittyHelper.DatabaseGenerators.KittyHelper.MigrationHelper;
 
 namespace KittyHelper.Options
 {
-     
-        public abstract class ViewOptions
+    public abstract class ViewOptions
+    {
+    }
+
+    public abstract class CreateOptions<T>
+    { 
+        //todo: move to extension method
+
+        private readonly string baseNameSpace;
+        public readonly CreateOptionsAuthenticationOptions Authenticate;
+
+        protected CreateOptions( string baseType, string baseNameSpace, CreateOptionsAuthenticationOptions authenticate = null)
         {
-                
+            var t = typeof(T);
+            this.baseNameSpace = baseNameSpace;
+            Authenticate = authenticate;
+            BaseType = baseType;
+            ResponseObjectType = $"{BaseType}Response";
+            ServiceObjectType = $"{BaseType}Service";
+            RequestObjectType = $"{BaseType}Request";
+            ServiceType = $"{BaseType}Service";
+            var an = new StringBuilder();
+            if (Authenticate is {Authenticate: true}) an.AppendLine("[Authenticate]");
+
+            if (Authenticate is {AllowedRoles: { }})
+                an.AppendLine($"[RequiredRoles({FormatRoles(Authenticate.AllowedRoles)}]");
+
+            
+            ComponentName = BaseType;
+               
+            ResponseObjectNamespace =   $"{baseNameSpace}.{BaseType}Models";
+            RequestObjectNamespace =  $"{baseNameSpace}.{BaseType}Models";
+            ServiceObjectNamespace =  $"{baseNameSpace}.{BaseType}Service";
+
+            Annotations = an.ToString();
         }
-        public abstract class CreateOptions
+        public string ResponseObjectNamespace { get; set; }
+        public string RequestObjectNamespace { get; set; }
+        
+        public string ServiceObjectNamespace { get; set; }
+
+        public string UserIdField { get; set; } = "UserId";
+
+        public string HttpVerb { get; set; } = "Post";
+        public string ResponseObjectType { get; set; }
+        public string ServiceObjectType { get; set; }
+        public string RequestObjectType { get; set; }
+        public string RequestObjectName { get; set; } = "request";
+
+        public string Annotations { get; set; } = "";
+        public string ServiceType { get; set; }
+        protected string BaseType { get; set; }
+        public string ResponseObjectName { get; set; } = "response";
+        public string ComponentName { get; set; }  
+      
+    
+
+
+
+        protected static string FormatRoles(string[] requiredRoles)
         {
-            private readonly CreateOptionsAuthenticationOptions _authenticate;
-
-
-            public string GenerateAuthIfNeeded()
-            {
-                return _authenticate is not {CheckUserOwnerShip: true}
-                    ? ""
-                    : $"a.{_authenticate.UserIdField} == {_authenticate.UserIdVariable} && ";
-            }
-
-            public string GenerateAssignToUser()
-            {
-                return _authenticate is not {CheckUserOwnerShip: true}   ? "" : $"{RequestObjectName}.{UserIdField} = {_authenticate.UserIdVariable}.Id";
-            }
-            public string GenerateUserLookUp()
-            {
-                return _authenticate is not {CheckUserOwnerShip: true}
-                    ? ""
-                    : @$"var customUserSession = SessionAs<{_authenticate.SessionType}>();
- 
-                var {_authenticate.UserIdVariable} = ({_authenticate.UserType}) AuthRepository.GetUserAuth(customUserSession.UserAuthId);";
-            }
-
-            protected CreateOptions(Type t, string baseType, CreateOptionsAuthenticationOptions authenticate = null)
-            {
-                _authenticate = authenticate;
-                BaseType = baseType;
-                ReturnType = $"{BaseType}Response";
-                RequestType = $"{BaseType}Request";
-                ServiceType = $"{BaseType}Service";
-                StringBuilder an = new StringBuilder();
-                if (_authenticate is {Authenticate: true})
-                {
-                    an.AppendLine("[Authenticate]");
-                }
-
-                if (_authenticate is {AllowedRoles: { }})
-                {
-                    an.AppendLine($"[RequiredRoles({FormatRoles(_authenticate.AllowedRoles)}]");
-                }
-
-                
-                Annotations = an.ToString();
-            }
-
-            public string UserIdField { get; set; } = "UserId";
-
-            public string HttpVerb { get; set; } = "Post";
-            public string ReturnType { get; set; }
-            public string RequestType { get; set; }
-            public string RequestObjectName { get; set; } = "request";
-
-            public string Annotations { get; set; } = "";
-            public string ServiceType { get; set; }
-            protected string BaseType { get; set; }
-
-            protected static string FormatRoles(string[] requiredRoles)
-            {
-                return string.Join(",", requiredRoles.Select(a => '"' + a + '"'));
-            }
+            return string.Join(",", requiredRoles.Select(a => '"' + a + '"'));
         }
-   
+    }
 }
